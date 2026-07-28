@@ -1,0 +1,17 @@
+{
+  "name": "curator-speed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node --check src/worker.js && node --check public/app.js",
+    "deploy": "wrangler deploy --config wrangler.toml",
+    "dev": "wrangler dev --config wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "^4.26.0"
+  }
+}
