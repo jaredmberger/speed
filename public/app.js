@@ -28,13 +28,14 @@ form.addEventListener('submit', async (event) => {
 
 function renderSummary(data) {
   const metrics = data.metrics || {};
+  const verdict = data.verdict || {};
   const cards = [
     [formatDuration(metrics.responseTimeMs), 'HTML response'],
-    [formatBytes(metrics.htmlBytes), 'HTML size'],
+    [formatBytes(metrics.htmlBytes), 'Decoded HTML'],
     [metrics.imageCount || 0, 'Images'],
     [metrics.scriptCount || 0, 'Scripts'],
-    [metrics.stylesheetCount || 0, 'Stylesheets'],
-    [data.findings?.length || 0, 'Recommendations']
+    [verdict.actionableCount ?? data.findings?.length ?? 0, 'Actionable'],
+    [verdict.informationalCount || 0, 'Informational']
   ];
   summary.innerHTML = cards.map(([value, label]) => `<article><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></article>`).join('');
   summary.hidden = false;
@@ -42,26 +43,60 @@ function renderSummary(data) {
 
 function renderFindings(data) {
   const items = data.findings || [];
+  const verdict = data.verdict || fallbackVerdict(items);
   findings.innerHTML = `
+    ${renderVerdict(verdict)}
     <div class="section-head">
-      <div><span class="eyebrow">Performance briefing</span><h2>${items.length ? `${items.length} recommendation${items.length === 1 ? '' : 's'}` : 'No major recommendations'}</h2></div>
+      <div><span class="eyebrow">Performance briefing</span><h2>${items.length ? `${items.length} observation${items.length === 1 ? '' : 's'}` : 'No major recommendations'}</h2></div>
       <button type="button" id="export-json">Export for CuratorOS</button>
     </div>
     <div class="finding-list">
-      ${items.length ? items.map(renderFinding).join('') : '<article class="finding low"><h3>This page passed the current MVP checks.</h3><p>Future versions will add resource-size measurement, page-type baselines, and cross-page comparisons.</p></article>'}
+      ${items.length ? items.map(renderFinding).join('') : '<article class="finding low"><h3>This page passed the current checks.</h3><p>No material performance problems were found.</p></article>'}
     </div>`;
   findings.hidden = false;
   document.querySelector('#export-json')?.addEventListener('click', () => downloadJson(data));
 }
 
+function renderVerdict(verdict) {
+  const priorities = Array.isArray(verdict.priorities) ? verdict.priorities : [];
+  return `<article class="verdict ${escapeHtml(verdict.status || 'healthy')}">
+    <span class="eyebrow">Curator Verdict</span>
+    <h2>${escapeHtml(verdict.headline || 'This page is healthy.')}</h2>
+    <p>${escapeHtml(verdict.summary || '')}</p>
+    ${priorities.length ? `<div class="verdict-priorities"><strong>What matters most</strong><span>${priorities.map(escapeHtml).join(' · ')}</span></div>` : ''}
+    ${verdict.informationalCount ? `<small>${escapeHtml(verdict.informationalCount)} informational observation${verdict.informationalCount === 1 ? '' : 's'} are separated from actionable work.</small>` : ''}
+  </article>`;
+}
+
 function renderFinding(item) {
-  return `<article class="finding ${escapeHtml(item.severity)}">
-    <div class="finding-head"><span>${escapeHtml(label(item.category))}</span><strong>${escapeHtml(item.severity)}</strong></div>
+  const severity = item.severity || 'medium';
+  const confidence = item.confidence || 'likely';
+  return `<article class="finding ${escapeHtml(severity)}">
+    <div class="finding-head"><span>${escapeHtml(label(item.category))}</span><div class="finding-badges"><strong>${escapeHtml(severity)}</strong><em>${escapeHtml(confidenceLabel(confidence))}</em></div></div>
     <h3>${escapeHtml(item.title)}</h3>
     <p>${escapeHtml(item.summary)}</p>
-    <p><b>Recommendation:</b> ${escapeHtml(item.recommendation)}</p>
+    <p><b>${confidence === 'informational' ? 'Suggested verification' : 'Recommendation'}:</b> ${escapeHtml(item.recommendation)}</p>
     ${item.estimatedImpact ? `<small>${escapeHtml(item.estimatedImpact)}</small>` : ''}
   </article>`;
+}
+
+function fallbackVerdict(items) {
+  const actionable = items.filter((item) => item.severity !== 'info' && item.confidence !== 'informational');
+  const informational = items.length - actionable.length;
+  return {
+    status: actionable.length ? 'good-with-opportunities' : 'healthy',
+    headline: actionable.length ? `This page has ${actionable.length} worthwhile improvement${actionable.length === 1 ? '' : 's'}.` : 'This page is healthy.',
+    summary: actionable.length ? `Focus on ${actionable.slice(0, 3).map((item) => item.title).join(', ')}.` : 'No material performance problems were found by the current checks.',
+    actionableCount: actionable.length,
+    informationalCount: informational,
+    priorities: actionable.slice(0, 3).map((item) => item.title)
+  };
+}
+
+function confidenceLabel(value) {
+  if (value === 'verified') return 'Verified';
+  if (value === 'informational') return 'Informational';
+  return 'Likely';
 }
 
 function setStatus(message, kind = '') {
