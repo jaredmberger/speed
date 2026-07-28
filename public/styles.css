@@ -16,7 +16,7 @@ button { cursor: pointer; }
 .hero h1 { margin: 5px 0 10px; font-size: clamp(2.35rem, 8vw, 5.4rem); line-height: .95; }
 .hero p { max-width: 700px; margin: 0; color: #d8d1c2; font-size: 1.08rem; }
 .eyebrow { color: var(--brass); text-transform: uppercase; letter-spacing: .16em; font-size: .72rem; font-weight: 700; }
-.panel, .status, .finding, .metrics article { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; box-shadow: 0 18px 52px rgba(0,0,0,.22); }
+.panel, .status, .finding, .metrics article, .verdict { border: 1px solid var(--line); background: var(--panel); border-radius: 18px; box-shadow: 0 18px 52px rgba(0,0,0,.22); }
 .panel { padding: 22px; margin-top: 18px; }
 label { display: block; font-weight: 700; margin-bottom: 9px; }
 .scan-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
@@ -33,6 +33,14 @@ form small { display: block; margin-top: 10px; }
 .metrics strong { color: var(--brass); font-size: 1.55rem; }
 .metrics span { margin-top: 6px; color: #cbc3b5; font-size: .82rem; }
 .findings { margin-top: 25px; }
+.verdict { margin-bottom: 24px; padding: 24px; border-left: 5px solid #6cac83; }
+.verdict.attention { border-left-color: #d85f5f; }
+.verdict.good-with-opportunities { border-left-color: #d6aa53; }
+.verdict h2 { margin: 8px 0 10px; font-size: clamp(1.55rem, 4vw, 2.35rem); }
+.verdict p { margin: 0; color: #d7d0c3; line-height: 1.6; }
+.verdict-priorities { margin: 16px 0 10px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
+.verdict-priorities strong, .verdict-priorities span { display: block; }
+.verdict-priorities span { margin-top: 6px; color: #eee6d5; line-height: 1.5; }
 .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .section-head h2 { margin: 5px 0 0; }
 .finding-list { display: grid; gap: 12px; }
@@ -40,7 +48,11 @@ form small { display: block; margin-top: 10px; }
 .finding.high { border-left-color: #d85f5f; }
 .finding.medium { border-left-color: #d6aa53; }
 .finding.low { border-left-color: #6cac83; }
+.finding.info { border-left-color: #6e93bd; }
 .finding-head { display: flex; justify-content: space-between; gap: 12px; color: var(--brass); text-transform: uppercase; letter-spacing: .1em; font-size: .68rem; }
+.finding-badges { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.finding-badges strong, .finding-badges em { border: 1px solid rgba(191,164,106,.35); border-radius: 999px; padding: 4px 7px; font-size: .62rem; font-style: normal; letter-spacing: .08em; }
+.finding-badges em { color: #c7d7e8; border-color: rgba(110,147,189,.4); }
 .finding h3 { margin: 10px 0 9px; }
 .finding p { color: #d7d0c3; line-height: 1.55; }
 .explanation { color: #d7d0c3; line-height: 1.6; }
@@ -49,4 +61,6 @@ form small { display: block; margin-top: 10px; }
   .scan-row { grid-template-columns: 1fr; }
   .section-head { align-items: stretch; flex-direction: column; }
   .section-head button { width: 100%; }
+  .finding-head { align-items: flex-start; flex-direction: column; }
+  .finding-badges { justify-content: flex-start; }
 }
