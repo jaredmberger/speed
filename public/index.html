@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Curator Speed</title>
+  <meta name="description" content="Performance intelligence for OceanLiners.net.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <span class="eyebrow">Ocean Liner Curator</span>
+      <h1>Curator Speed</h1>
+      <p>Run a focused performance review built specifically for OceanLiners.net.</p>
+    </header>
+
+    <section class="panel">
+      <form id="scan-form">
+        <label for="url">Page URL</label>
+        <div class="scan-row">
+          <input id="url" name="url" type="url" inputmode="url" value="https://oceanliners.net/" required>
+          <button type="submit">Analyze page</button>
+        </div>
+        <small>Current MVP accepts OceanLiners.net URLs only.</small>
+      </form>
+    </section>
+
+    <section id="status" class="status" hidden></section>
+    <section id="summary" class="metrics" hidden></section>
+    <section id="findings" class="findings" hidden></section>
+
+    <section class="panel explanation">
+      <span class="eyebrow">What this first version checks</span>
+      <p>Server response time, HTML size, redirects, caching and compression headers, image loading, missing image dimensions, render-blocking scripts, stylesheet count, and mobile viewport support.</p>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
