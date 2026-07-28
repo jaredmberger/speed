@@ -60,10 +60,11 @@ async function analyzeRequest(request) {
       resources,
       html
     });
+    const verdict = buildVerdict(findings);
 
     return json({
       type: 'curator-performance-scan',
-      version: 1,
+      version: 2,
       scannedAt: new Date().toISOString(),
       page: {
         requestedUrl: target.href,
@@ -77,6 +78,7 @@ async function analyzeRequest(request) {
         contentEncoding: response.headers.get('content-encoding') || ''
       },
       resources,
+      verdict,
       findings
     });
   } catch (error) {
@@ -137,9 +139,10 @@ function extractResources(html, baseUrl) {
 
 function buildFindings({ target, finalUrl, response, metrics, resources, html }) {
   const findings = [];
-  const push = (severity, category, title, summary, recommendation, estimatedImpact = '') => findings.push({
+  const push = (severity, confidence, category, title, summary, recommendation, estimatedImpact = '') => findings.push({
     id: `${category}:${stableId(`${target.href}|${title}`)}`,
     severity,
+    confidence,
     category,
     title,
     summary,
@@ -148,49 +151,82 @@ function buildFindings({ target, finalUrl, response, metrics, resources, html })
   });
 
   if (target.href !== finalUrl) {
-    push('low', 'redirect', 'Page request redirects', `The requested URL resolves to ${finalUrl}.`, 'Update internal links to use the final destination directly when convenient.', 'Small latency reduction');
+    push('low', 'verified', 'redirect', 'Page request redirects', `The requested URL resolves to ${finalUrl}.`, 'Update internal links to use the final destination directly when convenient.', 'Small latency reduction');
   }
   if (metrics.responseTimeMs > 1200) {
-    push('high', 'server-response', 'Slow initial response', `The HTML response took ${metrics.responseTimeMs} ms.`, 'Review Worker execution, origin response time, cache eligibility, and unnecessary redirects.', 'Potentially noticeable first-load improvement');
+    push('high', 'verified', 'server-response', 'Slow initial response', `The HTML response took ${metrics.responseTimeMs} ms.`, 'Review Worker execution, origin response time, cache eligibility, and unnecessary redirects.', 'Potentially noticeable first-load improvement');
   } else if (metrics.responseTimeMs > 600) {
-    push('medium', 'server-response', 'Initial response could be faster', `The HTML response took ${metrics.responseTimeMs} ms.`, 'Check Cloudflare caching and origin response time before changing front-end code.', 'Moderate improvement');
+    push('medium', 'verified', 'server-response', 'Initial response could be faster', `The HTML response took ${metrics.responseTimeMs} ms.`, 'Check Cloudflare caching and origin response time before changing front-end code.', 'Moderate improvement');
   }
   if (metrics.htmlBytes > 250_000) {
-    push('medium', 'document-size', 'Large HTML document', `The page HTML is ${formatBytes(metrics.htmlBytes)}.`, 'Move repeated inline data or scripts into cached external files and remove obsolete markup.', 'Reduced transfer and parsing work');
+    push('medium', 'likely', 'document-size', 'Large HTML document', `The decoded page HTML is ${formatBytes(metrics.htmlBytes)}.`, 'Review repeated inline data, embedded scripts, and obsolete markup. Confirm browser transfer size before treating the decoded size as network weight.', 'Reduced parsing and possible transfer work');
   }
   if (metrics.imageCount > 25) {
-    push('medium', 'images', 'Image-heavy page', `The page references ${metrics.imageCount} images.`, 'Lazy-load below-the-fold images and verify each image is appropriately sized and compressed.', 'Lower initial page weight');
+    push('medium', 'likely', 'images', 'Image-heavy page', `The page references ${metrics.imageCount} images.`, 'Lazy-load below-the-fold images and verify each image is appropriately sized and compressed.', 'Lower initial page weight');
   }
   const eagerImages = resources.filter((item) => item.type === 'image' && item.loading !== 'lazy');
   if (eagerImages.length > 8) {
-    push('medium', 'images', 'Many images load eagerly', `${eagerImages.length} images are not marked for lazy loading.`, 'Keep the hero and immediately visible images eager, then add loading="lazy" to images farther down the page.', 'Faster initial rendering');
+    push('medium', 'verified', 'images', 'Many images load eagerly', `${eagerImages.length} images are not marked for lazy loading.`, 'Keep the hero and immediately visible images eager, then add loading="lazy" to images farther down the page.', 'Faster initial rendering');
   }
   const missingDimensions = resources.filter((item) => item.type === 'image' && (!item.width || !item.height));
   if (missingDimensions.length > 3) {
-    push('medium', 'layout-stability', 'Images lack dimensions', `${missingDimensions.length} images do not declare both width and height.`, 'Add intrinsic dimensions or an aspect-ratio so the layout reserves space before images load.', 'Less layout shifting');
+    push('medium', 'verified', 'layout-stability', 'Images lack dimensions', `${missingDimensions.length} images do not declare both width and height.`, 'Add intrinsic dimensions or an aspect-ratio so the layout reserves space before images load.', 'Less layout shifting');
   }
   if (metrics.scriptCount > 10) {
-    push('medium', 'javascript', 'Many scripts requested', `The page references ${metrics.scriptCount} external scripts.`, 'Combine truly related scripts, remove obsolete utilities, and load page-specific behavior only where it is used.', 'Less network and execution overhead');
+    push('medium', 'likely', 'javascript', 'Many scripts requested', `The page references ${metrics.scriptCount} external scripts.`, 'Combine truly related scripts, remove obsolete utilities, and load page-specific behavior only where it is used.', 'Less network and execution overhead');
   }
   const blockingScripts = resources.filter((item) => item.type === 'script' && !item.async && !item.defer && !item.module);
   if (blockingScripts.length) {
-    push('high', 'javascript', 'Render-blocking scripts detected', `${blockingScripts.length} external script${blockingScripts.length === 1 ? '' : 's'} may block HTML parsing.`, 'Use defer for scripts that do not need to execute before the document is parsed.', 'Faster first render');
+    push('high', 'verified', 'javascript', 'Render-blocking scripts detected', `${blockingScripts.length} external script${blockingScripts.length === 1 ? '' : 's'} may block HTML parsing.`, 'Use defer for scripts that do not need to execute before the document is parsed.', 'Faster first render');
   }
   if (metrics.stylesheetCount > 6) {
-    push('low', 'css', 'Several stylesheets load separately', `The page references ${metrics.stylesheetCount} stylesheets.`, 'Review whether old or page-specific CSS is loading globally. Combine only files that are commonly used together.', 'Small request reduction');
+    push('low', 'likely', 'css', 'Several stylesheets load separately', `The page references ${metrics.stylesheetCount} stylesheets.`, 'Review whether old or page-specific CSS is loading globally. Combine only files that are commonly used together.', 'Small request reduction');
   }
   const cacheControl = response.headers.get('cache-control') || '';
   if (!cacheControl) {
-    push('medium', 'cache', 'No HTML cache policy detected', 'The response does not include a Cache-Control header.', 'Define an intentional cache policy for HTML while preserving timely editorial updates.', 'More predictable repeat visits');
+    push('medium', 'informational', 'cache', 'HTML cache policy could not be verified', 'The Worker subrequest did not expose a Cache-Control header.', 'Check the visitor-facing response in browser developer tools or Cloudflare before changing cache rules.', 'More predictable repeat visits');
   }
   if (!response.headers.get('content-encoding') && metrics.htmlBytes > 50_000) {
-    push('medium', 'compression', 'HTML compression not detected', `The HTML response is ${formatBytes(metrics.htmlBytes)} and no Content-Encoding header was observed.`, 'Confirm Brotli or gzip compression is enabled at Cloudflare.', 'Reduced transfer size');
+    push('info', 'informational', 'compression', 'Compression could not be verified', `The Worker analyzed ${formatBytes(metrics.htmlBytes)} of decoded HTML, but did not expose a Content-Encoding header.`, 'Confirm Brotli or gzip in Cloudflare or browser developer tools. This observation alone does not prove that visitors receive uncompressed HTML.', 'Verification only');
   }
   if (!/<meta\s+name=["']viewport["']/i.test(html)) {
-    push('high', 'mobile', 'Viewport declaration missing', 'The page does not appear to include a mobile viewport meta tag.', 'Add width=device-width and initial-scale=1 to support proper mobile rendering.', 'Major mobile usability improvement');
+    push('high', 'verified', 'mobile', 'Viewport declaration missing', 'The page does not appear to include a mobile viewport meta tag.', 'Add width=device-width and initial-scale=1 to support proper mobile rendering.', 'Major mobile usability improvement');
   }
 
   return findings.sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+}
+
+function buildVerdict(findings) {
+  const actionable = findings.filter((item) => item.severity !== 'info' && item.confidence !== 'informational');
+  const high = actionable.filter((item) => item.severity === 'high');
+  const medium = actionable.filter((item) => item.severity === 'medium');
+  const informational = findings.filter((item) => item.severity === 'info' || item.confidence === 'informational');
+  const top = actionable.slice(0, 3).map((item) => item.title);
+
+  let status = 'healthy';
+  let headline = 'This page is healthy.';
+  if (high.length) {
+    status = 'attention';
+    headline = `This page has ${high.length} high-priority issue${high.length === 1 ? '' : 's'} worth fixing.`;
+  } else if (medium.length) {
+    status = 'good-with-opportunities';
+    headline = `This page is generally healthy with ${medium.length} worthwhile improvement${medium.length === 1 ? '' : 's'}.`;
+  }
+
+  const summary = actionable.length
+    ? `Focus on ${top.join(', ')}${actionable.length > top.length ? ` and ${actionable.length - top.length} other actionable item${actionable.length - top.length === 1 ? '' : 's'}` : ''}.`
+    : 'No material performance problems were found by the current checks.';
+
+  return {
+    status,
+    headline,
+    summary,
+    actionableCount: actionable.length,
+    highCount: high.length,
+    mediumCount: medium.length,
+    informationalCount: informational.length,
+    priorities: top
+  };
 }
 
 function attributes(source) {
@@ -234,7 +270,7 @@ function formatBytes(value) {
 }
 
 function severityRank(value) {
-  return value === 'high' ? 0 : value === 'medium' ? 1 : 2;
+  return value === 'high' ? 0 : value === 'medium' ? 1 : value === 'low' ? 2 : 3;
 }
 
 function stableId(value) {
