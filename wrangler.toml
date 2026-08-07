@@ -6,5 +6,12 @@ compatibility_date = "2026-07-28"
 directory = "./public"
 binding = "ASSETS"
 
+[[kv_namespaces]]
+binding = "CURATOR_SPEED_RECORDS"
+id = "6de4740a91b94f9a945ce12a9f5a2208"
+
+[triggers]
+crons = ["37 * * * *"]
+
 [observability]
 enabled = true
