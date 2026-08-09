@@ -1,5 +1,5 @@
 name = "speed"
-main = "src/entry-v1.1.js"
+main = "src/entry-v1.2.js"
 compatibility_date = "2026-07-28"
 
 [assets]
