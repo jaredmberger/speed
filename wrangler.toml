@@ -10,6 +10,10 @@ binding = "ASSETS"
 binding = "CURATOR_SPEED_RECORDS"
 id = "6de4740a91b94f9a945ce12a9f5a2208"
 
+[[kv_namespaces]]
+binding = "CURATOR_ERROR_RECORDS"
+id = "447306da3a754b44830d2ac8608322c0"
+
 [triggers]
 crons = ["37 * * * *"]
 
