@@ -1,6 +1,9 @@
 name = "speed"
-main = "src/entry-v1.2.js"
+main = "src/entry-v1.3.js"
 compatibility_date = "2026-07-28"
+
+[build]
+command = "node scripts/write-build-meta.mjs"
 
 [assets]
 directory = "./public"
@@ -13,6 +16,9 @@ id = "6de4740a91b94f9a945ce12a9f5a2208"
 [[kv_namespaces]]
 binding = "CURATOR_ERROR_RECORDS"
 id = "447306da3a754b44830d2ac8608322c0"
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
 
 [triggers]
 crons = ["37 * * * *"]
